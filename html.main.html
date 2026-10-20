@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>PROJECT LAST KING — 3D Battle Royale</title>
+  <style>
+    :root {
+      --gold: #f5c518;
+      --gold-dark: #b8910d;
+      --gold-glow: rgba(245, 197, 24, 0.4);
+      --bg: #070a10;
+      --panel: rgba(12, 17, 28, 0.92);
+      --border: rgba(255, 255, 255, 0.15);
+      --red: #ff3344;
+      --blue: #29b6f6;
+      --green: #2ecc71;
+      --purple: #9c27b0;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: var(--font); color: #fff; touch-action: none; }
+    #game-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #000; }
+    #canvas3d { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+
+    #orientation-bar {
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(10, 14, 24, 0.9); border: 1px solid var(--gold);
+      border-radius: 20px; padding: 5px 14px; z-index: 100; display: flex;
+      align-items: center; gap: 10px; font-size: 11px; font-weight: 800;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.7); pointer-events: auto;
+    }
+    #orientation-bar .rotate-btn {
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: #000;
+      border: none; padding: 3px 10px; border-radius: 12px; font-weight: 900; font-size: 10px; cursor: pointer;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: #000; font-weight: 900;
+      border: none; border-radius: 6px; padding: 10px 18px; cursor: pointer; text-transform: uppercase;
+      letter-spacing: 1px; font-size: 12px; box-shadow: 0 4px 15px var(--gold-glow); transition: transform 0.08s;
+    }
+    .btn:active { transform: scale(0.95); }
+    .btn-red { background: linear-gradient(135deg, #ff4444, #b71c1c); color: #fff; }
+    .btn-blue { background: linear-gradient(135deg, #00d2ff, #0077b6); color: #000; }
+    .btn-green { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #000; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .badge-gold { background: var(--gold); color: #000; }
+    .badge-mythic { background: #d32f2f; color: #fff; }
+
+    #lobby-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+    .lobby-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; pointer-events: auto; background: linear-gradient(180deg, rgba(0,0,0,0.85) 0%, transparent 100%); }
+    .profile-card { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.65); padding: 6px 14px; border-radius: 30px; border: 1px solid var(--border); cursor: pointer; }
+    .profile-card .avatar { font-size: 22px; }
+    .profile-card .name { font-weight: 900; font-size: 13px; color: #fff; }
+    .profile-card .meta { font-size: 10px; color: var(--gold); }
+    .currencies-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .curr-pill { background: rgba(0,0,0,0.75); border: 1px solid var(--border); border-radius: 16px; padding: 4px 10px; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 5px; }
+
+    .lobby-footer { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 20px; pointer-events: auto; background: linear-gradient(0deg, rgba(0,0,0,0.92) 0%, transparent 100%); }
+    .lobby-nav { display: flex; gap: 6px; flex-wrap: wrap; max-width: 60%; }
+    .nav-btn { background: rgba(0,0,0,0.65); border: 1px solid var(--border); color: #ccc; padding: 7px 12px; border-radius: 6px; font-weight: 800; font-size: 11px; cursor: pointer; text-transform: uppercase; }
+    .nav-btn.active, .nav-btn:hover { background: rgba(245, 197, 24, 0.25); border-color: var(--gold); color: #fff; }
+    .nav-btn.owner { border-color: var(--gold); color: var(--gold); background: rgba(245, 197, 24, 0.15); }
+    .lobby-play-cluster { display: flex; align-items: center; gap: 10px; }
+    .map-badge-btn { background: rgba(0,0,0,0.75); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor: pointer; text-align: right; }
+    .map-badge-btn .sub { font-size: 9px; color: var(--gold); font-weight: 800; }
+    .map-badge-btn .title { font-size: 13px; font-weight: 900; }
+    .btn-battle { padding: 14px 28px; font-size: 16px; letter-spacing: 2px; }
+
+    #matchmaking-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 8, 14, 0.94); z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .spinner { width: 50px; height: 50px; border: 4px solid rgba(245, 197, 24, 0.2); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #in-game-hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; display: none; pointer-events: none; }
+    .hud-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 16px; pointer-events: auto; }
+    .hud-compass { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.65); border: 1px solid var(--border); padding: 4px 18px; border-radius: 12px; font-size: 11px; font-weight: 900; letter-spacing: 3px; color: #fff; }
+    .hud-minimap-box { width: 90px; height: 90px; border-radius: 8px; border: 2px solid var(--border); background: #0b111e; overflow: hidden; position: relative; }
+    .hud-counters { display: flex; gap: 8px; }
+    .counter-pill { background: rgba(0,0,0,0.7); border: 1px solid var(--border); padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; }
+    .counter-pill.alive { color: var(--green); }
+    .counter-pill.kills { color: var(--red); }
+    #hud-kill-feed { position: absolute; top: 60px; right: 16px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; max-width: 260px; }
+    .kill-feed-item { background: rgba(0,0,0,0.75); border-left: 3px solid #888; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .kill-feed-item.player-kill { border-left-color: var(--gold); color: var(--gold); }
+    .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; pointer-events: none; }
+    .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.85); }
+    .crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
+    .crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
+
+    #joystick-base { position: absolute; width: 110px; height: 110px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.25); transform: translate(-50%, -50%); display: none; pointer-events: none; z-index: 25; }
+    #joystick-thumb { position: absolute; width: 46px; height: 46px; border-radius: 50%; background: rgba(245, 197, 24, 0.6); border: 2px solid #fff; transform: translate(-50%, -50%); pointer-events: none; z-index: 26; }
+    #btn-claw-fire { position: absolute; top: 120px; left: 16px; width: 54px; height: 54px; border-radius: 50%; background: rgba(220, 38, 38, 0.75); border: 2px solid #ff6b6b; color: #fff; font-weight: 900; font-size: 11px; display: flex; align-items: center; justify-content: center; pointer-events: auto; cursor: pointer; }
+    .hud-actions-right { position: absolute; bottom: 16px; right: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: auto; }
+    .action-circle-btn { width: 56px; height: 56px; border-radius: 50%; background: rgba(0,0,0,0.7); border: 2px solid var(--border); color: #fff; font-weight: 900; font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .btn-fire-main { width: 70px; height: 70px; font-size: 14px; background: radial-gradient(circle, rgba(220, 38, 38, 0.85) 0%, rgba(139, 0, 0, 0.95) 100%); border-color: #ff6b6b; }
+    .btn-ads { background: radial-gradient(circle, rgba(41, 182, 246, 0.85) 0%, rgba(2, 119, 189, 0.95) 100%); border-color: #81d4fa; }
+    .hud-btn-row { display: flex; gap: 8px; }
+    .hud-btn-sm { width: 44px; height: 44px; font-size: 10px; }
+
+    .hud-bottom-center { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 5px; pointer-events: auto; }
+    .hp-bar-wrap { width: 200px; }
+    .hp-labels { display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; margin-bottom: 2px; }
+    .hp-bg { width: 100%; height: 9px; background: rgba(0,0,0,0.7); border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+    #hud-hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #27ae60, #2ecc71); }
+    .weapon-hotbar { display: flex; gap: 5px; }
+    .wep-slot { width: 75px; height: 38px; background: rgba(0,0,0,0.7); border: 1px solid var(--border); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 9px; font-weight: 800; }
+    .wep-slot.active { border-color: var(--gold); background: rgba(245, 197, 24, 0.25); color: var(--gold); }
+    .wep-slot .sub { font-size: 8px; color: #aaa; }
+
+    #aircraft-bar { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 12px; pointer-events: auto; background: rgba(0,0,0,0.8); padding: 8px 18px; border-radius: 30px; border: 1px solid var(--gold); }
+    #pre-match-banner { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.75); border: 1px solid var(--gold); border-radius: 20px; padding: 6px 18px; font-size: 12px; font-weight: 800; color: var(--gold); display: none; align-items: center; gap: 8px; z-index: 25; }
+
+    .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 7, 14, 0.94); z-index: 60; display: none; align-items: center; justify-content: center; padding: 16px; }
+    .modal-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: 100%; max-width: 650px; max-height: 85vh; overflow-y: auto; padding: 20px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    .modal-header h3 { font-size: 16px; font-weight: 900; color: var(--gold); letter-spacing: 1px; }
+    .close-btn { background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; font-weight: 900; }
+    .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+    .card-item { background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: pointer; text-align: center; }
+    .card-item:hover, .card-item.selected { border-color: var(--gold); background: rgba(245, 197, 24, 0.15); }
+    .card-item .name { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+    .card-item .desc { font-size: 10px; color: #888; }
+
+    #results-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(3, 5, 10, 0.95); z-index: 80; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+    #results-title { font-size: 32px; font-weight: 900; color: var(--gold); text-shadow: 0 0 25px var(--gold-glow); }
+    .results-grid { display: flex; gap: 20px; }
+    .result-stat { background: rgba(255,255,255,0.06); padding: 12px 20px; border-radius: 8px; text-align: center; }
+    .result-stat .val { font-size: 20px; font-weight: 900; color: #fff; }
+    .result-stat .lbl { font-size: 10px; color: #aaa; text-transform: uppercase; }
+
+    .admin-subnav { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 8px; overflow-x: auto; }
+    .admin-tab-btn { background: rgba(0,0,0,0.6); border: 1px solid var(--border); color: #bbb; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .admin-tab-btn.active { background: var(--gold); color: #000; border-color: var(--gold); }
+    .req-item { background: rgba(0,0,0,0.6); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="canvas3d"></canvas>
+
+    <div id="orientation-bar">
+      <span>📱 Horizontal Landscape Mode</span>
+      <button class="rotate-btn" id="btn-toggle-fs">⛶ FULLSCREEN / ROTATE</button>
+    </div>
+
+    <div id="joystick-base"></div>
+    <div id="joystick-thumb"></div>
+
+    <!-- 1. 3D LOBBY SCREEN -->
+    <div id="lobby-screen">
+      <header class="lobby-header">
+        <div class="profile-card" id="btn-open-profile">
+          <div class="avatar">👑</div>
+          <div>
+            <div class="name" id="lobby-name">KingSlayer (Owner)</div>
+            <div class="meta"><span id="lobby-id">b7967926-0523-4749-8c35-15b8d4b97958</span> • <span id="lobby-rank">Grandmaster I</span></div>
+          </div>
+        </div>
+
+        <div class="currencies-bar">
+          <div class="curr-pill" style="color:var(--gold);">💰 <span id="lobby-coins">999,999</span></div>
+          <div class="curr-pill" style="color:#00d2ff;">💎 <span id="lobby-gems">999,999</span></div>
+          <div class="curr-pill" style="color:#ab47bc;">🧩 <span id="lobby-fragments">99,999</span></div>
+        </div>
+      </header>
+
+      <div class="lobby-footer">
+        <div class="lobby-nav">
+          <button class="nav-btn active" id="btn-tab-maps">MAPS (6)</button>
+          <button class="nav-btn" id="btn-tab-armory">ARMORY</button>
+          <button class="nav-btn" id="btn-tab-outfits">OUTFITS</button>
+          <button class="nav-btn" id="btn-tab-chests">CHESTS</button>
+          <button class="nav-btn" id="btn-tab-shop">SHOP</button>
+          <button class="nav-btn owner" id="btn-tab-owner">👑 OWNER / ADMIN</button>
+        </div>
+
+        <div class="lobby-play-cluster">
+          <div class="map-badge-btn" id="btn-choose-map">
+            <div class="sub">SELECTED MAP</div>
+            <div class="title" id="lobby-selected-map">Emerald Island</div>
+          </div>
+          <button class="btn btn-battle" id="btn-start-game">BATTLE ROYALE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. MATCHMAKING OVERLAY -->
+    <div id="matchmaking-overlay">
+      <div class="spinner"></div>
+      <h2 style="color:var(--gold); font-size:22px; font-weight:900;">MATCHMAKING (SOLO 100 PLAYERS)</h2>
+      <div id="matchmaking-counter" style="font-size:16px; font-weight:800; color:#fff;">1/100 Combatants Joined</div>
+      <div style="font-size:12px; color:#888;">Assembling 1 Human Player + 99 Intelligent AI Bots...</div>
+    </div>
+
+    <!-- 3. IN-GAME HUD -->
+    <div id="in-game-hud">
+      <div id="pre-match-banner">
+        <span>PRE-MATCH ISLAND COUNTDOWN:</span>
+        <span id="waiting-timer" style="color:#fff; font-weight:900;">15s</span>
+        <button class="btn btn-blue" id="btn-fast-forward" style="padding:2px 8px; font-size:10px;">SKIP</button>
+      </div>
+
+      <div class="hud-top">
+        <div class="hud-minimap-box" id="minimap-box">
+          <div style="font-size:10px; color:#aaa; padding:4px; text-align:center;">STORM ZONE</div>
+        </div>
+        <div class="hud-compass" id="hud-compass">N • 035 • E</div>
+        <div class="hud-counters">
+          <div class="counter-pill alive">ALIVE: <span id="hud-alive">100</span></div>
+          <div class="counter-pill kills">KILLS: <span id="hud-kills">0</span></div>
+        </div>
+      </div>
+
+      <div id="hud-kill-feed"></div>
+      <div class="crosshair"></div>
+      <div id="btn-claw-fire">FIRE</div>
+
+      <div class="hud-actions-right">
+        <div class="hud-btn-row">
+          <div class="action-circle-btn hud-btn-sm" id="btn-hud-heal">MED</div>
+          <div class="action-circle-btn hud-btn-sm" id="btn-hud-reload">RELOAD</div>
+        </div>
+        <div class="hud-btn-row">
+          <div class="action-circle-btn hud-btn-sm" id="btn-hud-prone">PRONE</div>
+          <div class="action-circle-btn hud-btn-sm" id="btn-hud-crouch">CROUCH</div>
+        </div>
+        <div class="hud-btn-row" style="align-items:center;">
+          <div class="action-circle-btn btn-ads" id="btn-hud-ads">ADS</div>
+          <div class="action-circle-btn" id="btn-hud-jump">JUMP</div>
+          <div class="action-circle-btn btn-fire-main" id="btn-hud-fire">FIRE</div>
+        </div>
+      </div>
+
+      <div class="hud-bottom-center">
+        <div class="hp-bar-wrap">
+          <div class="hp-labels"><span>HEALTH</span><span id="hp-text">100 / 100</span></div>
+          <div class="hp-bg"><div id="hud-hp-fill"></div></div>
+        </div>
+        <div class="weapon-hotbar">
+          <div class="wep-slot active" id="slot-0"><div>M416</div><div class="sub">5.56mm</div></div>
+          <div class="wep-slot" id="slot-1"><div>AK-47</div><div class="sub">7.62mm</div></div>
+          <div class="wep-slot" id="slot-2"><div>AWM</div><div class="sub">.300 Mag</div></div>
+          <div class="wep-slot" id="slot-3"><div>Katana</div><div class="sub">Melee</div></div>
+        </div>
+        <div style="font-size:11px; font-weight:900;">AMMO: <span style="color:var(--gold);" id="ammo-text">30 / 120</span></div>
+      </div>
+
+      <div id="aircraft-bar">
+        <span style="color:var(--gold); font-size:12px; font-weight:900;">C-130 HERCULES IN FLIGHT</span>
+        <button class="btn btn-red" id="btn-jump-plane">JUMP / AIRDROP</button>
+        <button class="btn btn-blue" id="btn-deploy-chute">DEPLOY PARACHUTE</button>
+      </div>
+    </div>
+
+    <!-- 4. MODALS -->
+    <div class="modal-overlay" id="modal-maps">
+      <div class="modal-box">
+        <div class="modal-header"><h3>SIX PLAYABLE BATTLEGROUND MAPS</h3><button class="close-btn" data-close="modal-maps">×</button></div>
+        <div class="grid-cards" id="maps-grid-container"></div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-armory">
+      <div class="modal-box">
+        <div class="modal-header"><h3>ARMORY & WEAPON ARSENAL</h3><button class="close-btn" data-close="modal-armory">×</button></div>
+        <div class="grid-cards" id="armory-grid-container"></div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-outfits">
+      <div class="modal-box">
+        <div class="modal-header"><h3>TACTICAL OUTFITS & SKINS</h3><button class="close-btn" data-close="modal-outfits">×</button></div>
+        <div class="grid-cards" id="outfits-grid-container"></div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-chests">
+      <div class="modal-box">
+        <div class="modal-header"><h3>SUPPLY CHESTS & CRATES</h3><button class="close-btn" data-close="modal-chests">×</button></div>
+        <div class="grid-cards">
+          <div class="card-item" id="btn-open-daily-chest"><div style="font-size:32px;">📦</div><div class="name">Daily Free Crate</div><div class="desc" style="color:var(--green);">READY TO OPEN</div></div>
+          <div class="card-item" id="btn-open-rare-chest"><div style="font-size:32px;">🎁</div><div class="name">Rare Military Crate</div><div class="desc" style="color:var(--blue);">1,000 Coins</div></div>
+          <div class="card-item" id="btn-open-mythic-chest"><div style="font-size:32px;">👑</div><div class="name">Mythic Sovereign Crate</div><div class="desc" style="color:var(--gold);">150 Gems</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-shop">
+      <div class="modal-box">
+        <div class="modal-header"><h3>BLACK MARKET SHOP</h3><button class="close-btn" data-close="modal-shop">×</button></div>
+        <div class="grid-cards">
+          <div class="card-item"><div class="name">💰 50,000 Coins</div><div class="desc">500 Gems</div><button class="btn btn-green" style="margin-top:6px; font-size:10px;" onclick="alert('Purchased!')">BUY</button></div>
+          <div class="card-item"><div class="name">💎 1,000 Gems Pack</div><div class="desc">Free for Owner</div><button class="btn btn-blue" style="margin-top:6px; font-size:10px;" onclick="alert('Credited!')">CLAIM</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OWNER COMMAND CENTER -->
+    <div class="modal-overlay" id="modal-owner">
+      <div class="modal-box">
+        <div class="modal-header"><h3>👑 OWNER COMMAND CENTER (ALL UNLOCKED)</h3><button class="close-btn" data-close="modal-owner">×</button></div>
+        <div style="font-size:12px; color:#aaa; margin-bottom:12px; line-height:1.5;">
+          Owner Account: <strong style="color:var(--gold);">abhaymunnudubey100@gmail.com</strong><br>
+          Owner ID: <span style="color:#00d2ff;">b7967926-0523-4749-8c35-15b8d4b97958</span> • Password Verified: <span style="color:var(--green);">abhay990 [APPROVED]</span>
+        </div>
+        <div class="admin-subnav">
+          <button class="admin-tab-btn active" id="tab-btn-requests">PLAYER REQUESTS</button>
+          <button class="admin-tab-btn" id="tab-btn-addskin">ADD SKIN BY IMAGE</button>
+          <button class="admin-tab-btn" id="tab-btn-godpowers">GOD POWERS</button>
+          <button class="admin-tab-btn" id="tab-btn-moderation">BAN / MODERATION</button>
+        </div>
+        <div id="admin-view-requests"><div id="requests-list-container"></div></div>
+        <div id="admin-view-addskin" style="display:none;">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="text" id="skin-input-name" placeholder="Skin Name (e.g. Golden Dragon King)" style="background:rgba(0,0,0,0.6); border:1px solid var(--border); color:#fff; padding:8px; border-radius:4px; font-size:12px;">
+            <input type="text" id="skin-input-url" placeholder="Image URL (or leave blank)" style="background:rgba(0,0,0,0.6); border:1px solid var(--border); color:#fff; padding:8px; border-radius:4px; font-size:12px;">
+            <select id="skin-input-rarity" style="background:#111; border:1px solid var(--border); color:#fff; padding:8px; border-radius:4px; font-size:12px;">
+              <option value="MYTHIC">Mythic Tier</option><option value="LEGENDARY">Legendary Tier</option>
+            </select>
+            <button class="btn btn-green" id="btn-save-new-skin">🚀 ADD SKIN & EQUIP TO 3D CHARACTER</button>
+          </div>
+        </div>
+        <div id="admin-view-godpowers" style="display:none;">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-blue" id="btn-owner-godmode">TOGGLE GODMODE (INVINCIBLE HP)</button>
+            <button class="btn btn-blue" id="btn-owner-max-ammo">REFILL UNLIMITED AMMO (999/999)</button>
+            <button class="btn btn-gold" id="btn-owner-spawn-airdrop">SUMMON TACTICAL AIRDROP NOW</button>
+            <button class="btn btn-red" id="btn-owner-insta-win">INSTANT VICTORY ROYALE</button>
+          </div>
+        </div>
+        <div id="admin-view-moderation" style="display:none;">
+          <input type="text" id="mod-player-id" placeholder="Target Player ID" style="background:rgba(0,0,0,0.6); border:1px solid var(--border); color:#fff; padding:8px; border-radius:4px; font-size:12px;">
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="btn btn-red" style="flex:1;" id="btn-ban-player">BAN PLAYER</button>
+            <button class="btn btn-green" style="flex:1;" id="btn-unban-player">UNBAN PLAYER</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. RESULTS SCREEN -->
+    <div id="results-screen">
+      <div id="results-title">#1 VICTORY ROYALE!</div>
+      <div class="badge badge-gold" style="font-size:14px; padding:6px 14px;">LAST KING STANDING</div>
+      <div class="results-grid">
+        <div class="result-stat"><div class="val" id="res-kills">0</div><div class="lbl">Eliminations</div></div>
+        <div class="result-stat"><div class="val" id="res-damage">0</div><div class="lbl">Damage</div></div>
+        <div class="result-stat"><div class="val" style="color:var(--gold);">+5,000</div><div class="lbl">Coins</div></div>
+      </div>
+      <button class="btn btn-battle" id="btn-return-lobby">RETURN TO LOBBY</button>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    const MAPS = {
+      emerald_island: { name: 'Emerald Island', sub: 'Tropical Coastline & Military Base', sky: [0.35, 0.65, 0.95], ground: [0.18, 0.42, 0.16] },
+      frostfall: { name: 'Frostfall', sub: 'Snowy Peaks & Frozen Fjords', sky: [0.72, 0.82, 0.95], ground: [0.85, 0.90, 0.95] },
+      dust_reign: { name: 'Dust Reign', sub: 'Desert Dunes & Canyon Ruins', sky: [0.95, 0.75, 0.50], ground: [0.75, 0.55, 0.28] },
+      neon_district: { name: 'Neon District', sub: 'Cyberpunk Metropolis', sky: [0.08, 0.05, 0.18], ground: [0.12, 0.14, 0.20] },
+      wild_frontier: { name: 'Wild Frontier', sub: 'Dense Redwoods & Lakes', sky: [0.45, 0.68, 0.85], ground: [0.22, 0.35, 0.18] },
+      volcanic_edge: { name: 'Volcanic Edge', sub: 'Basalt Caldera & Lava', sky: [0.45, 0.12, 0.08], ground: [0.15, 0.10, 0.10] }
+    };
+
+    const WEAPONS = [
+      { id: 'm416', name: 'M416 Tactical', damage: 34, rpm: 700, mag: 30, range: 180 },
+      { id: 'ak47', name: 'AK-47 Warlord', damage: 48, rpm: 550, mag: 30, range: 160 },
+      { id: 'awm', name: 'AWM Arctic', damage: 135, rpm: 40, mag: 5, range: 400 },
+      { id: 'katana', name: 'Shadow Katana', damage: 85, rpm: 90, mag: 1, range: 3.5 }
+    ];
+
+    class Vec3 {
+      constructor(x=0, y=0, z=0) { this.x = x; this.y = y; this.z = z; }
+      set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }
+      copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; }
+      clone() { return new Vec3(this.x, this.y, this.z); }
+      add(v) { this.x += v.x; this.y += v.y; this.z += v.z; return this; }
+      addScaled(v, s) { this.x += v.x * s; this.y += v.y * s; this.z += v.z * s; return this; }
+      sub(v) { this.x -= v.x; this.y -= v.y; this.z -= v.z; return this; }
+      scale(s) { this.x *= s; this.y *= s; this.z *= s; return this; }
+      length() { return Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z); }
+      normalize() { const l = this.length(); if (l > 0.0001) { this.x /= l; this.y /= l; this.z /= l; } return this; }
+      distanceTo(v) { const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z; return Math.sqrt(dx*dx + dy*dy + dz*dz); }
+    }
+
+    class Mat4 {
+      constructor() { this.elements = new Float32Array(16); this.identity(); }
+      identity() {
+        const e = this.elements;
+        e[0]=1; e[1]=0; e[2]=0; e[3]=0; e[4]=0; e[5]=1; e[6]=0; e[7]=0;
+        e[8]=0; e[9]=0; e[10]=1; e[11]=0; e[12]=0; e[13]=0; e[14]=0; e[15]=1;
+        return this;
+      }
+      perspective(fovy, aspect, near, far) {
+        const e = this.elements;
+        const f = 1.0 / Math.tan(fovy * Math.PI / 360.0);
+        const nf = 1 / (near - far);
+        e[0] = f / aspect; e[1] = 0; e[2] = 0; e[3] = 0;
+        e[4] = 0; e[5] = f; e[6] = 0; e[7] = 0;
+        e[8] = 0; e[9] = 0; e[10] = (far + near) * nf; e[11] = -1;
+        e[12] = 0; e[13] = 0; e[14] = (2 * far * near) * nf; e[15] = 0;
+        return this;
+      }
+      lookAt(eye, target, up) {
+        const e = this.elements;
+        let zx = eye.x - target.x, zy = eye.y - target.y, zz = eye.z - target.z;
+        let lz = 1 / Math.sqrt(zx*zx + zy*zy + zz*zz || 1);
+        zx *= lz; zy *= lz; zz *= lz;
+        let xx = up.y * zz - up.z * zy, xy = up.z * zx - up.x * zz, xz = up.x * zy - up.y * zx;
+        let lx = 1 / Math.sqrt(xx*xx + xy*xy + xz*xz || 1);
+        xx *= lx; xy *= lx; xz *= lx;
+        let yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+        e[0] = xx; e[1] = yx; e[2] = zx; e[3] = 0;
+        e[4] = xy; e[5] = yy; e[6] = zy; e[7] = 0;
+        e[8] = xz; e[9] = yz; e[10] = zz; e[11] = 0;
+        e[12] = -(xx * eye.x + xy * eye.y + xz * eye.z);
+        e[13] = -(yx * eye.x + yy * eye.y + yz * eye.z);
+        e[14] = -(zx * eye.x + zy * eye.y + zz * eye.z);
+        e[15] = 1;
+        return this;
+      }
+    }
+
+    class SoundEngine {
+      constructor() { this.ctx = null; }
+      init() {
+        if (!this.ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) this.ctx = new AC();
+        }
+      }
+      playShoot(isSniper) {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isSniper ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(isSniper ? 180 : 320, t);
+        osc.frequency.exponentialRampToValueAtTime(30, t + (isSniper ? 0.35 : 0.12));
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + (isSniper ? 0.35 : 0.12));
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + (isSniper ? 0.35 : 0.12));
+      }
+      playReload() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(600, t);
+        osc.frequency.setValueAtTime(800, t + 0.1);
+        gain.gain.setValueAtTime(0.15, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.25);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + 0.25);
+      }
+      playJump() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(140, t); osc.frequency.exponentialRampToValueAtTime(280, t + 0.2);
+        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + 0.2);
+      }
+      playHit() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(800, t);
+        gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t); osc.stop(t + 0.08);
+      }
+    }
+
+    class BattleRoyaleGame {
+      constructor() {
+        this.canvas = document.getElementById('canvas3d');
+        this.gl = this.canvas.getContext('webgl', { antialias: true }) || this.canvas.getContext('experimental-webgl');
+        this.sound = new SoundEngine();
+
+        this.currentMapId = 'emerald_island';
+        this.matchState = 'LOBBY';
+        this.isGodMode = false;
+        this.ownerSkinColor = [0.95, 0.75, 0.15];
+
+        this.player = {
+          pos: new Vec3(0, 1.2, 0),
+          vel: new Vec3(),
+          yaw: 0, pitch: 0,
+          health: 100,
+          isAlive: true,
+          activeWeapon: 0,
+          currentMag: 30, reserveAmmo: 120,
+          kills: 0, damage: 0,
+          isAds: false
+        };
+
+        this.cameraEye = new Vec3(0, 3, 5);
+        this.cameraTarget = new Vec3(0, 1, 0);
+        this.projMat = new Mat4();
+        this.viewMat = new Mat4();
+        this.modelMat = new Mat4();
+
+        this.bots = [];
+        this.aliveCount = 100;
+
+        this.aircraft = { pos: new Vec3(-350, 90, 0), dir: new Vec3(1, 0, 0), speed: 55 };
+        this.skydiveState = 'NONE';
+
+        this.moveX = 0; this.moveZ = 0;
+        this.isFiring = false;
+        this.fireCooldown = 0;
+        this.joystickCenter = { x: 0, y: 0 };
+        this.touchId = null;
+        this.aimTouchId = null;
+        this.lastAim = { x: 0, y: 0 };
+
+        this.playerRequests = [
+          { id: 'REQ-1042', player: 'ShadowViper', type: 'Free Battle Coins', amount: '5,000 Coins', status: 'PENDING' },
+          { id: 'REQ-1043', player: 'SniperKing', type: 'Free Premium Gems', amount: '500 Gems', status: 'PENDING' },
+          { id: 'REQ-1044', player: 'Titan_99', type: 'Skin Gift', amount: 'Cyber Sovereign', status: 'PENDING' }
+        ];
+
+        this.initShaders();
+        this.initMeshes();
+        this.bindEvents();
+        this.setupLobby();
+        this.renderRequestsList();
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      initShaders() {
+        const gl = this.gl;
+        if (!gl) return;
+
+        const vs = `
+          attribute vec3 aPosition;
+          attribute vec3 aNormal;
+          attribute vec3 aColor;
+          uniform mat4 uProj;
+          uniform mat4 uView;
+          uniform mat4 uModel;
+          varying vec3 vColor;
+          varying vec3 vNormal;
+          varying float vDist;
+          void main() {
+            vec4 worldPos = uModel * vec4(aPosition, 1.0);
+            gl_Position = uProj * uView * worldPos;
+            vColor = aColor;
+            vNormal = mat3(uModel) * aNormal;
+            vDist = length(worldPos.xyz);
+          }
+        `;
+        const fs = `
+          precision mediump float;
+          varying vec3 vColor;
+          varying vec3 vNormal;
+          varying float vDist;
+          uniform vec3 uLightDir;
+          uniform vec3 uSkyColor;
+          void main() {
+            vec3 n = normalize(vNormal);
+            float diff = max(dot(n, normalize(uLightDir)), 0.25);
+            vec3 litColor = vColor * (diff + 0.45);
+            float fog = clamp((vDist - 60.0) / 280.0, 0.0, 0.85);
+            gl_FragColor = vec4(mix(litColor, uSkyColor, fog), 1.0);
+          }
+        `;
+
+        const compile = (src, type) => {
+          const s = gl.createShader(type);
+          gl.shaderSource(s, src); gl.compileShader(s);
+          return s;
+        };
+
+        const prog = gl.createProgram();
+        gl.attachShader(prog, compile(vs, gl.VERTEX_SHADER));
+        gl.attachShader(prog, compile(fs, gl.FRAGMENT_SHADER));
+        gl.linkProgram(prog);
+        gl.useProgram(prog);
+        this.prog = prog;
+
+        this.locs = {
+          pos: gl.getAttribLocation(prog, 'aPosition'),
+          norm: gl.getAttribLocation(prog, 'aNormal'),
+          col: gl.getAttribLocation(prog, 'aColor'),
+          uProj: gl.getUniformLocation(prog, 'uProj'),
+          uView: gl.getUniformLocation(prog, 'uView'),
+          uModel: gl.getUniformLocation(prog, 'uModel'),
+          uLight: gl.getUniformLocation(prog, 'uLightDir'),
+          uSky: gl.getUniformLocation(prog, 'uSkyColor')
+        };
+      }
+
+      initMeshes() {
+        const gl = this.gl;
+        if (!gl) return;
+
+        const cubeVerts = new Float32Array([
+          -0.5, -0.5,  0.5,  0, 0, 1,   0.5, -0.5,  0.5,  0, 0, 1,   0.5,  0.5,  0.5,  0, 0, 1,  -0.5,  0.5,  0.5,  0, 0, 1,
+          -0.5, -0.5, -0.5,  0, 0, -1, -0.5,  0.5, -0.5,  0, 0, -1,  0.5,  0.5, -0.5,  0, 0, -1,  0.5, -0.5, -0.5,  0, 0, -1,
+          -0.5,  0.5, -0.5,  0, 1, 0,  -0.5,  0.5,  0.5,  0, 1, 0,   0.5,  0.5,  0.5,  0, 1, 0,   0.5,  0.5, -0.5,  0, 1, 0,
+          -0.5, -0.5, -0.5,  0, -1, 0,  0.5, -0.5, -0.5,  0, -1, 0,  0.5, -0.5,  0.5,  0, -1, 0, -0.5, -0.5,  0.5,  0, -1, 0
+        ]);
+        const cubeIndices = new Uint16Array([
+          0, 1, 2,  0, 2, 3,  4, 5, 6,  4, 6, 7,  8, 9, 10, 8, 10, 11,  12, 13, 14, 12, 14, 15
+        ]);
+
+        this.cubeVbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVbo);
+        gl.bufferData(gl.ARRAY_BUFFER, cubeVerts, gl.STATIC_DRAW);
+
+        this.cubeIbo = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeIbo);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cubeIndices, gl.STATIC_DRAW);
+
+        const gridSize = 45;
+        const step = 14;
+        const terrainVerts = [];
+        const terrainInds = [];
+
+        for (let i = 0; i <= gridSize; i++) {
+          for (let j = 0; j <= gridSize; j++) {
+            const x = (i - gridSize / 2) * step;
+            const z = (j - gridSize / 2) * step;
+            const y = Math.sin(x * 0.02) * Math.cos(z * 0.02) * 8.0 + Math.sin(x * 0.06) * 3.0;
+            terrainVerts.push(x, y, z, 0, 1, 0);
+          }
+        }
+        for (let i = 0; i < gridSize; i++) {
+          for (let j = 0; j < gridSize; j++) {
+            const r1 = i * (gridSize + 1) + j;
+            const r2 = (i + 1) * (gridSize + 1) + j;
+            terrainInds.push(r1, r2, r1 + 1);
+            terrainInds.push(r1 + 1, r2, r2 + 1);
+          }
+        }
+
+        this.terrainVbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.terrainVbo);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(terrainVerts), gl.STATIC_DRAW);
+
+        this.terrainIbo = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.terrainIbo);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(terrainInds), gl.STATIC_DRAW);
+        this.terrainIndexCount = terrainInds.length;
+      }
+
+      getTerrainHeight(x, z) {
+        return Math.sin(x * 0.02) * Math.cos(z * 0.02) * 8.0 + Math.sin(x * 0.06) * 3.0;
+      }
+
+      drawBox(pos, size, color, rotY=0) {
+        const gl = this.gl;
+        if (!gl) return;
+
+        this.modelMat.identity();
+        this.modelMat.elements[12] = pos.x;
+        this.modelMat.elements[13] = pos.y;
+        this.modelMat.elements[14] = pos.z;
+
+        if (rotY !== 0) {
+          const cos = Math.cos(rotY), sin = Math.sin(rotY);
+          this.modelMat.elements[0] = cos * size.x;
+          this.modelMat.elements[2] = -sin * size.z;
+          this.modelMat.elements[5] = size.y;
+          this.modelMat.elements[8] = sin * size.x;
+          this.modelMat.elements[10] = cos * size.z;
+        } else {
+          this.modelMat.elements[0] = size.x;
+          this.modelMat.elements[5] = size.y;
+          this.modelMat.elements[10] = size.z;
+        }
+
+        gl.uniformMatrix4fv(this.locs.uModel, false, this.modelMat.elements);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVbo);
+        gl.vertexAttribPointer(this.locs.pos, 3, gl.FLOAT, false, 24, 0);
+        gl.enableVertexAttribArray(this.locs.pos);
+        gl.vertexAttribPointer(this.locs.norm, 3, gl.FLOAT, false, 24, 12);
+        gl.enableVertexAttribArray(this.locs.norm);
+        gl.disableVertexAttribArray(this.locs.col);
+        gl.vertexAttrib3fv(this.locs.col, color);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeIbo);
+        gl.drawElements(gl.TRIANGLES, 24, gl.UNSIGNED_SHORT, 0);
+      }
+
+      drawHumanoid(pos, yaw, skinColor) {
+        this.drawBox(new Vec3(pos.x, pos.y + 1.6, pos.z), new Vec3(0.35, 0.35, 0.35), [0.95, 0.78, 0.65], yaw);
+        this.drawBox(new Vec3(pos.x, pos.y + 1.8, pos.z), new Vec3(0.38, 0.15, 0.38), [0.15, 0.20, 0.25], yaw);
+        this.drawBox(new Vec3(pos.x, pos.y + 1.05, pos.z), new Vec3(0.55, 0.75, 0.35), skinColor, yaw);
+        this.drawBox(new Vec3(pos.x - 0.15, pos.y + 0.4, pos.z), new Vec3(0.2, 0.75, 0.2), [0.12, 0.15, 0.20], yaw);
+        this.drawBox(new Vec3(pos.x + 0.15, pos.y + 0.4, pos.z), new Vec3(0.2, 0.75, 0.2), [0.12, 0.15, 0.20], yaw);
+        const wepForward = new Vec3(Math.sin(yaw) * 0.45, 0, Math.cos(yaw) * 0.45);
+        this.drawBox(new Vec3(pos.x + wepForward.x, pos.y + 1.0, pos.z + wepForward.z), new Vec3(0.12, 0.16, 0.75), [0.08, 0.08, 0.08], yaw);
+      }
+
+      drawAircraft(pos, yaw) {
+        this.drawBox(pos, new Vec3(6.5, 4.5, 24.0), [0.45, 0.48, 0.52], yaw);
+        this.drawBox(new Vec3(pos.x, pos.y + 0.8, pos.z), new Vec3(36.0, 0.6, 5.0), [0.42, 0.45, 0.48], yaw);
+      }
+
+      resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        if (this.gl) this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      }
+
+      setupLobby() {
+        const mapsContainer = document.getElementById('maps-grid-container');
+        mapsContainer.innerHTML = '';
+        Object.entries(MAPS).forEach(([id, m]) => {
+          const card = document.createElement('div');
+          card.className = `card-item ${id === this.currentMapId ? 'selected' : ''}`;
+          card.innerHTML = `<div class="name">${m.name}</div><div class="desc">${m.sub}</div>`;
+          card.onclick = () => {
+            this.currentMapId = id;
+            document.querySelectorAll('#maps-grid-container .card-item').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            document.getElementById('lobby-selected-map').textContent = m.name;
+            document.getElementById('modal-maps').style.display = 'none';
+          };
+          mapsContainer.appendChild(card);
+        });
+
+        const armoryContainer = document.getElementById('armory-grid-container');
+        armoryContainer.innerHTML = '';
+        WEAPONS.forEach((w, idx) => {
+          const card = document.createElement('div');
+          card.className = `card-item ${idx === 0 ? 'selected' : ''}`;
+          card.innerHTML = `<div class="name">${w.name}</div><div class="desc">DMG: ${w.damage} | RPM: ${w.rpm}</div>`;
+          armoryContainer.appendChild(card);
+        });
+
+        const outfitsContainer = document.getElementById('outfits-grid-container');
+        outfitsContainer.innerHTML = '';
+        ['Military Vanguard', 'Cyber Sovereign (Gold)', 'Urban Phantom', 'Arctic Ghost', 'Desert Nomad', 'Volcanic Slayer'].forEach((name, i) => {
+          const card = document.createElement('div');
+          card.className = `card-item ${i === 1 ? 'selected' : ''}`;
+          card.innerHTML = `<div class="name">${name}</div><div class="desc"><span class="badge badge-gold">UNLOCKED (OWNER)</span></div>`;
+          outfitsContainer.appendChild(card);
+        });
+      }
+
+      renderRequestsList() {
+        const c = document.getElementById('requests-list-container');
+        if (!c) return;
+        c.innerHTML = '';
+        this.playerRequests.forEach((req, idx) => {
+          const div = document.createElement('div');
+          div.className = 'req-item';
+          div.innerHTML = `
+            <div>
+              <div style="font-weight:900; font-size:12px; color:#fff;">${req.player} (${req.id})</div>
+              <div style="font-size:10px; color:var(--gold);">${req.type}: ${req.amount}</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              ${req.status === 'PENDING' ? `
+                <button class="btn btn-green" style="padding:4px 8px; font-size:10px;" onclick="window.PLK.approveRequest(${idx})">APPROVE</button>
+                <button class="btn btn-red" style="padding:4px 8px; font-size:10px;" onclick="window.PLK.rejectRequest(${idx})">REJECT</button>
+              ` : `<span class="badge ${req.status === 'APPROVED' ? 'badge-gold' : 'badge-mythic'}">${req.status}</span>`}
+            </div>
+          `;
+          c.appendChild(div);
+        });
+      }
+
+      approveRequest(idx) {
+        const req = this.playerRequests[idx];
+        req.status = 'APPROVED';
+        this.renderRequestsList();
+        alert(`✅ Request ${req.id} APPROVED! Delivered to ${req.player}!`);
+      }
+
+      rejectRequest(idx) {
+        const req = this.playerRequests[idx];
+        req.status = 'REJECTED';
+        this.renderRequestsList();
+        alert(`❌ Request ${req.id} Rejected.`);
+      }
+
+      bindEvents() {
+        document.getElementById('btn-toggle-fs').onclick = async () => {
+          try {
+            if (!document.fullscreenElement) {
+              await document.documentElement.requestFullscreen();
+              if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape').catch(() => {});
+            } else {
+              await document.exitFullscreen();
+            }
+          } catch (_) {}
+        };
+
+        const setupModal = (btnId, modalId) => {
+          const b = document.getElementById(btnId);
+          if (b) b.onclick = () => { document.getElementById(modalId).style.display = 'flex'; };
+        };
+        setupModal('btn-tab-maps', 'modal-maps');
+        setupModal('btn-choose-map', 'modal-maps');
+        setupModal('btn-tab-armory', 'modal-armory');
+        setupModal('btn-tab-outfits', 'modal-outfits');
+        setupModal('btn-tab-chests', 'modal-chests');
+        setupModal('btn-tab-shop', 'modal-shop');
+        setupModal('btn-tab-owner', 'modal-owner');
+
+        document.querySelectorAll('.close-btn').forEach(btn => {
+          btn.onclick = () => {
+            const m = document.getElementById(btn.dataset.close);
+            if (m) m.style.display = 'none';
+          };
+        });
+
+        const adminViews = ['requests', 'addskin', 'godpowers', 'moderation'];
+        adminViews.forEach(v => {
+          const b = document.getElementById(`tab-btn-${v}`);
+          if (b) {
+            b.onclick = () => {
+              adminViews.forEach(x => {
+                document.getElementById(`tab-btn-${x}`).classList.remove('active');
+                document.getElementById(`admin-view-${x}`).style.display = 'none';
+              });
+              b.classList.add('active');
+              document.getElementById(`admin-view-${v}`).style.display = 'block';
+            };
+          }
+        });
+
+        document.getElementById('btn-save-new-skin').onclick = () => {
+          const name = document.getElementById('skin-input-name').value.trim() || 'Custom Royal Sovereign';
+          this.ownerSkinColor = [0.95, 0.20, 0.20];
+          alert(`🎉 SUCCESS! Skin "${name}" created and equipped to your 3D character!`);
+          document.getElementById('modal-owner').style.display = 'none';
+        };
+
+        document.getElementById('btn-owner-godmode').onclick = () => {
+          this.isGodMode = !this.isGodMode;
+          alert(`Godmode: ${this.isGodMode ? 'ENABLED (INVINCIBLE)' : 'DISABLED'}`);
+        };
+        document.getElementById('btn-owner-max-ammo').onclick = () => {
+          this.player.reserveAmmo = 999;
+          this.player.currentMag = 99;
+          this.updateHUD();
+          alert('Unlimited ammo refilled!');
+        };
+        document.getElementById('btn-owner-spawn-airdrop').onclick = () => {
+          alert('🪂 Tactical Airdrop container deployed near your position!');
+        };
+        document.getElementById('btn-owner-insta-win').onclick = () => {
+          this.aliveCount = 1;
+          this.endMatch(true);
+        };
+
+        document.getElementById('btn-open-daily-chest').onclick = () => {
+          this.sound.init();
+          this.sound.playReload();
+          alert('🎁 DAILY CRATE OPENED! You received: 500 Coins + M416 Desert Skin!');
+          document.getElementById('modal-chests').style.display = 'none';
+        };
+        document.getElementById('btn-open-rare-chest').onclick = () => {
+          alert('🎁 RARE CRATE OPENED! You received: Level 3 Spetsnaz Helmet + 250 Gems!');
+          document.getElementById('modal-chests').style.display = 'none';
+        };
+        document.getElementById('btn-open-mythic-chest').onclick = () => {
+          alert('👑 MYTHIC SOVEREIGN CRATE OPENED! You received: Sovereign Crown Cape + AWM Dragon!');
+          document.getElementById('modal-chests').style.display = 'none';
+        };
+
+        document.getElementById('btn-start-game').onclick = () => this.startMatchmaking();
+        document.getElementById('btn-return-lobby').onclick = () => this.returnToLobby();
+        document.getElementById('btn-fast-forward').onclick = () => { this.waitingTimer = 0.5; };
+        document.getElementById('btn-jump-plane').onclick = () => this.jumpFromPlane();
+        document.getElementById('btn-deploy-chute').onclick = () => { this.skydiveState = 'CHUTE'; };
+
+        for (let i = 0; i < 4; i++) {
+          const s = document.getElementById(`slot-${i}`);
+          if (s) s.onclick = () => this.switchWeapon(i);
+        }
+
+        const bindHold = (id, onDown, onUp) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('touchstart', (e) => { e.preventDefault(); onDown(); }, { passive: false });
+          el.addEventListener('touchend', (e) => { e.preventDefault(); onUp(); }, { passive: false });
+          el.addEventListener('mousedown', () => onDown());
+          el.addEventListener('mouseup', () => onUp());
+        };
+
+        bindHold('btn-hud-fire', () => { this.isFiring = true; }, () => { this.isFiring = false; });
+        bindHold('btn-claw-fire', () => { this.isFiring = true; }, () => { this.isFiring = false; });
+
+        document.getElementById('btn-hud-ads').onclick = () => {
+          this.player.isAds = !this.player.isAds;
+          document.getElementById('btn-hud-ads').style.background = this.player.isAds ? 'var(--gold)' : '';
+        };
+        document.getElementById('btn-hud-jump').onclick = () => this.jumpPlayer();
+        document.getElementById('btn-hud-crouch').onclick = () => {};
+        document.getElementById('btn-hud-prone').onclick = () => {};
+        document.getElementById('btn-hud-reload').onclick = () => this.reloadWeapon();
+        document.getElementById('btn-hud-heal').onclick = () => {
+          this.player.health = Math.min(100, this.player.health + 35);
+          this.updateHUD();
+          this.sound.playReload();
+        };
+
+        window.addEventListener('keydown', (e) => {
+          if (e.code === 'KeyW' || e.code === 'ArrowUp') this.moveZ = 1;
+          if (e.code === 'KeyS' || e.code === 'ArrowDown') this.moveZ = -1;
+          if (e.code === 'KeyA' || e.code === 'ArrowLeft') this.moveX = -1;
+          if (e.code === 'KeyD' || e.code === 'ArrowRight') this.moveX = 1;
+          if (e.code === 'Space') {
+            if (this.matchState === 'AIRCRAFT') this.jumpFromPlane();
+            else this.jumpPlayer();
+          }
+          if (e.code === 'KeyR') this.reloadWeapon();
+        });
+        window.addEventListener('keyup', (e) => {
+          if (['KeyW','KeyS','ArrowUp','ArrowDown'].includes(e.code)) this.moveZ = 0;
+          if (['KeyA','KeyD','ArrowLeft','ArrowRight'].includes(e.code)) this.moveX = 0;
+        });
+
+        const touchArea = this.canvas;
+        touchArea.addEventListener('touchstart', (e) => {
+          this.sound.init();
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            const halfW = window.innerWidth * 0.45;
+            if (t.clientX < halfW && this.touchId === null) {
+              this.touchId = t.identifier;
+              this.joystickCenter = { x: t.clientX, y: t.clientY };
+              this.updateJoystickUI(t.clientX, t.clientY);
+            } else if (t.clientX >= halfW && this.aimTouchId === null) {
+              this.aimTouchId = t.identifier;
+              this.lastAim = { x: t.clientX, y: t.clientY };
+            }
+          }
+        }, { passive: false });
+
+        touchArea.addEventListener('touchmove', (e) => {
+          e.preventDefault();
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === this.touchId) {
+              const dx = t.clientX - this.joystickCenter.x;
+              const dy = t.clientY - this.joystickCenter.y;
+              const dist = Math.min(50, Math.sqrt(dx*dx + dy*dy));
+              const angle = Math.atan2(dy, dx);
+              this.moveX = (dist / 50) * Math.cos(angle);
+              this.moveZ = -(dist / 50) * Math.sin(angle);
+              this.updateJoystickUI(this.joystickCenter.x + Math.cos(angle)*dist, this.joystickCenter.y + Math.sin(angle)*dist);
+            } else if (t.identifier === this.aimTouchId) {
+              const dx = t.clientX - this.lastAim.x;
+              const dy = t.clientY - this.lastAim.y;
+              this.lastAim = { x: t.clientX, y: t.clientY };
+              this.player.yaw += dx * 0.005;
+              this.player.pitch = Math.max(-1.1, Math.min(1.1, this.player.pitch + dy * 0.005));
+            }
+          }
+        }, { passive: false });
+
+        const endTouch = (e) => {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === this.touchId) {
+              this.touchId = null; this.moveX = 0; this.moveZ = 0;
+              document.getElementById('joystick-base').style.display = 'none';
+            }
+            if (t.identifier === this.aimTouchId) this.aimTouchId = null;
+          }
+        };
+        touchArea.addEventListener('touchend', endTouch);
+        touchArea.addEventListener('touchcancel', endTouch);
+      }
+
+      updateJoystickUI(currX, currY) {
+        const base = document.getElementById('joystick-base');
+        const thumb = document.getElementById('joystick-thumb');
+        if (base && thumb) {
+          base.style.display = 'block';
+          base.style.left = `${this.joystickCenter.x}px`;
+          base.style.top = `${this.joystickCenter.y}px`;
+          thumb.style.left = `${currX}px`;
+          thumb.style.top = `${currY}px`;
+        }
+      }
+
+      switchWeapon(idx) {
+        this.player.activeWeapon = idx;
+        const wep = WEAPONS[idx];
+        this.player.currentMag = wep.mag;
+        for (let i = 0; i < 4; i++) {
+          const s = document.getElementById(`slot-${i}`);
+          if (s) s.className = `wep-slot ${i === idx ? 'active' : ''}`;
+        }
+        this.sound.playReload();
+        this.updateHUD();
+      }
+
+      reloadWeapon() {
+        const wep = WEAPONS[this.player.activeWeapon];
+        this.player.currentMag = wep.mag;
+        this.sound.playReload();
+        this.updateHUD();
+      }
+
+      jumpPlayer() {
+        if (this.player.pos.y <= this.getTerrainHeight(this.player.pos.x, this.player.pos.z) + 0.3) {
+          this.player.vel.y = 8.5;
+          this.sound.playJump();
+        }
+      }
+
+      startMatchmaking() {
+        this.sound.init();
+        const overlay = document.getElementById('matchmaking-overlay');
+        const counter = document.getElementById('matchmaking-counter');
+        overlay.style.display = 'flex';
+
+        let count = 1;
+        const interval = setInterval(() => {
+          count += Math.floor(Math.random() * 20) + 10;
+          if (count >= 100) {
+            count = 100;
+            clearInterval(interval);
+            setTimeout(() => {
+              overlay.style.display = 'none';
+              this.launchMatch();
+            }, 600);
+          }
+          counter.textContent = `${count}/100 Combatants Joined`;
+        }, 120);
+      }
+
+      launchMatch() {
+        this.matchState = 'WAITING_ISLAND';
+        this.waitingTimer = 15.0;
+        this.aliveCount = 100;
+        this.player.kills = 0;
+        this.player.damage = 0;
+        this.player.health = 100;
+        this.player.isAlive = true;
+        this.player.pos.set(0, this.getTerrainHeight(0, 0) + 1.2, 0);
+
+        this.bots = [];
+        const botNames = ['ShadowStrike', 'GhostRider', 'ViperX', 'ApexPredator', 'SniperWolf', 'FrostBite', 'Havoc', 'RogueKing'];
+        for (let i = 1; i <= 99; i++) {
+          const angle = (i / 99) * Math.PI * 2;
+          const dist = 15 + (i % 8) * 4;
+          const x = Math.cos(angle) * dist;
+          const z = Math.sin(angle) * dist;
+          this.bots.push({
+            id: i,
+            name: `${botNames[i % botNames.length]}_${i}`,
+            pos: new Vec3(x, this.getTerrainHeight(x, z) + 1.2, z),
+            yaw: Math.random() * Math.PI * 2,
+            health: 100,
+            isAlive: true,
+            shootTimer: Math.random() * 3
+          });
+        }
+
+        document.getElementById('lobby-screen').style.display = 'none';
+        document.getElementById('in-game-hud').style.display = 'block';
+        document.getElementById('pre-match-banner').style.display = 'flex';
+        document.getElementById('aircraft-bar').style.display = 'none';
+        document.getElementById('results-screen').style.display = 'none';
+        this.updateHUD();
+      }
+
+      startAircraftDrop() {
+        this.matchState = 'AIRCRAFT';
+        this.aircraft.pos.set(-300, 110, -50);
+        this.aircraft.dir.set(1, 0, 0.2).normalize();
+        this.skydiveState = 'NONE';
+        document.getElementById('pre-match-banner').style.display = 'none';
+        document.getElementById('aircraft-bar').style.display = 'flex';
+      }
+
+      jumpFromPlane() {
+        if (this.skydiveState !== 'NONE') return;
+        this.skydiveState = 'FREEFALL';
+        this.player.pos.copy(this.aircraft.pos);
+        this.matchState = 'ACTIVE_COMBAT';
+        document.getElementById('aircraft-bar').style.display = 'none';
+        this.sound.playJump();
+      }
+
+      updateHUD() {
+        document.getElementById('hud-alive').textContent = this.aliveCount;
+        document.getElementById('hud-kills').textContent = this.player.kills;
+        document.getElementById('hp-text').textContent = `${Math.round(this.player.health)} / 100`;
+        document.getElementById('hud-hp-fill').style.width = `${Math.max(0, this.player.health)}%`;
+        document.getElementById('ammo-text').textContent = `${this.player.currentMag} / ${this.player.reserveAmmo}`;
+      }
+
+      endMatch(isVictory) {
+        this.matchState = 'RESULTS';
+        const res = document.getElementById('results-screen');
+        const title = document.getElementById('results-title');
+        title.textContent = isVictory ? '#1 VICTORY ROYALE!' : 'ELIMINATED';
+        document.getElementById('res-kills').textContent = this.player.kills;
+        document.getElementById('res-damage').textContent = Math.round(this.player.damage);
+        res.style.display = 'flex';
+      }
+
+      returnToLobby() {
+        this.matchState = 'LOBBY';
+        document.getElementById('results-screen').style.display = 'none';
+        document.getElementById('in-game-hud').style.display = 'none';
+        document.getElementById('lobby-screen').style.display = 'flex';
+        this.isFiring = false; this.moveX = 0; this.moveZ = 0;
+      }
+
+      update(dt) {
+        if (this.matchState === 'LOBBY') {
+          this.cameraEye.set(Math.sin(performance.now() * 0.001) * 3.2, 1.6, Math.cos(performance.now() * 0.001) * 3.2);
+          this.cameraTarget.set(0, 1.2, 0);
+          return;
+        }
+
+        if (this.matchState === 'WAITING_ISLAND') {
+          this.waitingTimer -= dt;
+          document.getElementById('waiting-timer').textContent = `${Math.ceil(this.waitingTimer)}s`;
+          if (this.waitingTimer <= 0) this.startAircraftDrop();
+        }
+
+        if (this.matchState === 'AIRCRAFT') {
+          this.aircraft.pos.addScaled(this.aircraft.dir, this.aircraft.speed * dt);
+          this.cameraEye.set(this.aircraft.pos.x - 30, this.aircraft.pos.y + 12, this.aircraft.pos.z - 30);
+          this.cameraTarget.copy(this.aircraft.pos);
+          if (this.aircraft.pos.x > 250) this.jumpFromPlane();
+          return;
+        }
+
+        if (this.skydiveState === 'FREEFALL' || this.skydiveState === 'CHUTE') {
+          const fallSpeed = this.skydiveState === 'CHUTE' ? 12 : 38;
+          this.player.pos.y -= fallSpeed * dt;
+          this.player.pos.x += Math.sin(this.player.yaw) * 14 * dt;
+          this.player.pos.z += Math.cos(this.player.yaw) * 14 * dt;
+
+          const ground = this.getTerrainHeight(this.player.pos.x, this.player.pos.z) + 1.2;
+          if (this.player.pos.y <= ground) {
+            this.player.pos.y = ground;
+            this.skydiveState = 'LANDED';
+          }
+        } else {
+          const speed = this.player.isAds ? 3.0 : 7.2;
+          const fwd = new Vec3(Math.sin(this.player.yaw), 0, Math.cos(this.player.yaw));
+          const rgt = new Vec3(fwd.z, 0, -fwd.x);
+
+          this.player.pos.addScaled(fwd, this.moveZ * speed * dt);
+          this.player.pos.addScaled(rgt, this.moveX * speed * dt);
+
+          const groundY = this.getTerrainHeight(this.player.pos.x, this.player.pos.z) + 1.2;
+          if (this.player.pos.y > groundY) {
+            this.player.vel.y -= 22 * dt;
+            this.player.pos.y += this.player.vel.y * dt;
+            if (this.player.pos.y < groundY) {
+              this.player.pos.y = groundY;
+              this.player.vel.y = 0;
+            }
+          } else {
+            this.player.pos.y = groundY;
+          }
+        }
+
+        if (this.fireCooldown > 0) this.fireCooldown -= dt;
+        if (this.isFiring && this.fireCooldown <= 0 && this.player.currentMag > 0) {
+          const wep = WEAPONS[this.player.activeWeapon];
+          this.fireCooldown = 60 / wep.rpm;
+          this.player.currentMag--;
+          this.sound.playShoot(wep.id === 'awm');
+          this.updateHUD();
+
+          const aimDir = new Vec3(Math.sin(this.player.yaw), -Math.sin(this.player.pitch), Math.cos(this.player.yaw)).normalize();
+          for (const bot of this.bots) {
+            if (!bot.isAlive) continue;
+            const toBot = bot.pos.clone().sub(this.player.pos);
+            const dist = toBot.length();
+            if (dist < wep.range) {
+              const dot = toBot.normalize().x * aimDir.x + toBot.y * aimDir.y + toBot.z * aimDir.z;
+              if (dot > 0.94) {
+                bot.health -= wep.damage;
+                this.player.damage += wep.damage;
+                this.sound.playHit();
+                if (bot.health <= 0) {
+                  bot.isAlive = false;
+                  this.aliveCount--;
+                  this.player.kills++;
+                  this.broadcastKill('KingSlayer', bot.name, wep.name, true);
+                  this.updateHUD();
+                  if (this.aliveCount <= 1) this.endMatch(true);
+                }
+                break;
+              }
+            }
+          }
+        }
+
+        for (const b of this.bots) {
+          if (!b.isAlive) continue;
+          b.shootTimer -= dt;
+          if (b.shootTimer <= 0) {
+            b.shootTimer = 4 + Math.random() * 6;
+            if (Math.random() < 0.25 && this.aliveCount > 2) {
+              const victim = this.bots.find(v => v.isAlive && v.id !== b.id);
+              if (victim) {
+                victim.isAlive = false;
+                this.aliveCount--;
+                this.broadcastKill(b.name, victim.name, 'AK-47');
+                this.updateHUD();
+              }
+            }
+          }
+        }
+
+        const camDist = this.player.isAds ? 1.8 : 3.8;
+        const camH = this.player.isAds ? 1.4 : 1.8;
+        this.cameraEye.set(
+          this.player.pos.x - Math.sin(this.player.yaw) * camDist,
+          this.player.pos.y + camH,
+          this.player.pos.z - Math.cos(this.player.yaw) * camDist
+        );
+        this.cameraTarget.set(this.player.pos.x, this.player.pos.y + 1.2, this.player.pos.z);
+      }
+
+      broadcastKill(killer, victim, weapon, isPlayer=false) {
+        const feed = document.getElementById('hud-kill-feed');
+        if (!feed) return;
+        const div = document.createElement('div');
+        div.className = `kill-feed-item ${isPlayer ? 'player-kill' : ''}`;
+        div.textContent = `${killer} eliminated ${victim} with ${weapon}`;
+        feed.prepend(div);
+        setTimeout(() => div.remove(), 4000);
+      }
+
+      render() {
+        const gl = this.gl;
+        if (!gl) return;
+
+        const map = MAPS[this.currentMapId] || MAPS.emerald_island;
+        gl.clearColor(map.sky[0], map.sky[1], map.sky[2], 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+
+        this.projMat.perspective(60, this.canvas.width / this.canvas.height, 0.2, 500);
+        this.viewMat.lookAt(this.cameraEye, this.cameraTarget, new Vec3(0, 1, 0));
+
+        gl.uniformMatrix4fv(this.locs.uProj, false, this.projMat.elements);
+        gl.uniformMatrix4fv(this.locs.uView, false, this.viewMat.elements);
+        gl.uniform3f(this.locs.uLight, 0.4, 0.8, 0.5);
+        gl.uniform3fv(this.locs.uSky, map.sky);
+
+        if (this.terrainVbo) {
+          this.modelMat.identity();
+          gl.uniformMatrix4fv(this.locs.uModel, false, this.modelMat.elements);
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.terrainVbo);
+          gl.vertexAttribPointer(this.locs.pos, 3, gl.FLOAT, false, 24, 0);
+          gl.enableVertexAttribArray(this.locs.pos);
+          gl.vertexAttribPointer(this.locs.norm, 3, gl.FLOAT, false, 24, 12);
+          gl.enableVertexAttribArray(this.locs.norm);
+          gl.disableVertexAttribArray(this.locs.col);
+          gl.vertexAttrib3fv(this.locs.col, map.ground);
+
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.terrainIbo);
+          gl.drawElements(gl.TRIANGLES, this.terrainIndexCount, gl.UNSIGNED_SHORT, 0);
+        }
+
+        if (this.matchState === 'AIRCRAFT') {
+          this.drawAircraft(this.aircraft.pos, 0);
+        }
+
+        if (this.player.isAlive && !this.player.isAds) {
+          this.drawHumanoid(this.player.pos, this.player.yaw, this.ownerSkinColor);
+        }
+
+        for (const b of this.bots) {
+          if (!b.isAlive) continue;
+          if (b.pos.distanceTo(this.cameraEye) < 180) {
+            this.drawHumanoid(b.pos, b.yaw, [0.35, 0.40, 0.45]);
+          }
+        }
+
+        for (const c of [[15, 10], [-25, 30], [50, -40]]) {
+          const y = this.getTerrainHeight(c[0], c[1]) + 0.4;
+          this.drawBox(new Vec3(c[0], y, c[1]), new Vec3(1.2, 0.8, 1.2), [0.95, 0.75, 0.15]);
+        }
+      }
+
+      run() {
+        let last = performance.now();
+        const loop = (now) => {
+          const dt = Math.min(0.1, (now - last) * 0.001);
+          last = now;
+          this.update(dt);
+          this.render();
+          requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const game = new BattleRoyaleGame();
+      window.PLK = game;
+      game.run();
+    });
+  })();
+  </script>
+</body>
+</html>
